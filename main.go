@@ -6,7 +6,6 @@ import (
 	"image"
 	"os"
 	"encoding/binary"
-	"image/color"
 	_ "image/png"
 )
 
@@ -29,6 +28,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	copy(bootrom[0x22:], []byte {0xa8, 0x00})
 	copy(bootrom[0xA8:], imageData)
 
 	// Ordinarily the boot ROM compares its internal copy of the Nintendo
@@ -65,8 +65,8 @@ func generateLogo(imageData []byte) (data []byte, err error) {
 
 	for y := 0; y < 8; y += 4 {
 		for x := 0; x < 48; x += 4 {
-			data = append(imageData, encodeBlock(&m, x, y))
-			data = append(imageData, encodeBlock(&m, x, y+2))
+			data = append(data, encodeBlock(&m, x, y))
+			data = append(data, encodeBlock(&m, x, y+2))
 		}
 	}
 
@@ -78,7 +78,9 @@ func encodeBlock(m *image.Image, x int, y int) byte {
 
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 2; j++ {
-			if (*m).At(x+i, y+j) == color.Black {
+			r, _, _, _ := (*m).At(x+i, y+j).RGBA()
+
+			if r == 0 {
 				block |= 1 << uint(7 - i - 4*j)
 			}
 		}
@@ -111,7 +113,7 @@ func generateNotice(imageData []byte) (data []byte, err error) {
         for y := 0; y < 8; y ++ {
 		//TODO: Get registration symbol replacement working
 		//(Zeroed out for now)
-		data = append(imageData, 0x00)
+		data = append(data, 0x00)
         }
 
 	return
@@ -121,7 +123,9 @@ func encodeLine(m *image.Image, y int) byte {
 	var line int = 0
 
 	for x := 0; x < 8; x++ {
-		if (*m).At(x, y) == color.Black {
+		r, _, _, _ := (*m).At(x, y).RGBA()
+
+		if r == 0 {
 			line |= 1 << uint(7 - x)
 		}
 	}
