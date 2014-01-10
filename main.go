@@ -73,7 +73,7 @@ func generateLogo(imageData []byte) (data []byte, err error) {
 	return
 }
 
-func encodeBlock(m *image.Image, x int, y int) byte {
+func encodeBlock(m *image.Image, x, y int) byte {
 	var block int = 0
 
 	for i := 0; i < 4; i++ {
