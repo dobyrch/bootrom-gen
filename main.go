@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"image"
-	"log"
 	"os"
 	"encoding/binary"
+	"image/color"
 	_ "image/png"
 )
 
@@ -12,11 +14,20 @@ import (
 //TODO: Enable support for other (lossless) image formats
 //TODO: Use more flexible condition for determining which pixels are black
 func main() {
-
 	imageData := make([]byte, 0, 56)
+	var err error
 
-	imageData, _ = generateLogo(imageData)
-	imageData, _ = generateNotice(imageData)
+	imageData, err = generateLogo(imageData)
+	if (err != nil) {
+		fmt.Printf("%s: %s\n", os.Args[0], err)
+		os.Exit(1)
+	}
+
+	imageData, err = generateNotice(imageData)
+	if (err != nil) {
+		fmt.Printf("%s: %s\n", os.Args[0], err)
+		os.Exit(1)
+	}
 
 	copy(bootrom[0xA8:], imageData)
 
@@ -31,38 +42,43 @@ func main() {
 	binary.Write(os.Stdout, binary.LittleEndian, bootrom)
 }
 
-func generateLogo(imageData []byte) ([]byte, error) {
-	reader, err := os.Open("logo.png")
+func generateLogo(imageData []byte) (data []byte, err error) {
+	data = imageData
 
+	reader, err := os.Open("logo.png")
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 	defer reader.Close()
 
 	m, _, err := image.Decode(reader)
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
-	bounds := m.Bounds()
 
-	for y := bounds.Min.Y; y < 8; y += 4 {
-		for x := bounds.Min.X; x < 48; x += 4 {
-			imageData = append(imageData, encodeBlock(m, x, y))
-			imageData = append(imageData, encodeBlock(m, x, y+2))
+	bounds := m.Bounds()
+	if bounds.Min.X != 0 || bounds.Max.X != 48 ||
+	   bounds.Min.Y != 0 || bounds.Max.Y != 8 {
+		err = errors.New("logo.png must be 48x8 pixels")
+		return
+	}
+
+	for y := 0; y < 8; y += 4 {
+		for x := 0; x < 48; x += 4 {
+			data = append(imageData, encodeBlock(&m, x, y))
+			data = append(imageData, encodeBlock(&m, x, y+2))
 		}
 	}
 
-	return imageData, nil
+	return
 }
 
-func encodeBlock(m image.Image, x int, y int) byte {
+func encodeBlock(m *image.Image, x int, y int) byte {
 	var block int = 0
 
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 2; j++ {
-			r, _, _, _ := m.At(x+i, y+j).RGBA()
-
-			if r == 0 {
+			if (*m).At(x+i, y+j) == color.Black {
 				block |= 1 << uint(7 - i - 4*j)
 			}
 		}
@@ -71,36 +87,41 @@ func encodeBlock(m image.Image, x int, y int) byte {
 	return byte(block)
 }
 
-func generateNotice(imageData []byte) ([]byte, error) {
+func generateNotice(imageData []byte) (data []byte, err error) {
+	data = imageData
+
 	reader, err := os.Open("notice.png")
-	
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 	defer reader.Close()
 
 	m, _, err := image.Decode(reader)
         if err != nil {
-                log.Fatal(err)
+                return
         }
-        bounds := m.Bounds()
 
-        for y := bounds.Min.Y; y < 8; y ++ {
+        bounds := m.Bounds()
+	if bounds.Min.X != 0 || bounds.Max.X != 8 ||
+	   bounds.Min.Y != 0 || bounds.Max.Y != 8 {
+		err = errors.New("notice.png must be 8x8 pixels")
+		return
+	}
+
+        for y := 0; y < 8; y ++ {
 		//TODO: Get registration symbol replacement working
 		//(Zeroed out for now)
-		imageData = append(imageData, 0x00)
+		data = append(imageData, 0x00)
         }
 
-	return imageData, nil
+	return
 }
 
-func encodeLine(m image.Image, y int) byte {
+func encodeLine(m *image.Image, y int) byte {
 	var line int = 0
 
 	for x := 0; x < 8; x++ {
-		r, _, _, _ := m.At(x, y).RGBA()
-
-		if r == 0 {
+		if (*m).At(x, y) == color.Black {
 			line |= 1 << uint(7 - x)
 		}
 	}
