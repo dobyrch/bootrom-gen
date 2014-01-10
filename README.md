@@ -12,4 +12,6 @@ The program looks for two images in the current directory:
 * A 48x8 pixel png called *logo.png*
 * An 8x8 pixel png called *notice.png*
 
-It will output a list of comma separated bytes which can be inserted into the Game Boy boot ROM to show your custom image in place of the Nintendo logo.
+It modifies the standard Game Boy boot procedure to display your custom images
+in place of the Nintendo logo.  Currently the patched ROM is outputted in
+binary format, so it is recommended that you pipe the output to a file.
